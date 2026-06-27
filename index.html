@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d0d1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gurbani Echo">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Gurbani Echo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;600&family=Inter:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #0d0d1a;
+    --surface:  #14142b;
+    --gold:     #ffd700;
+    --gold-dim: #8a7400;
+    --text:     #e8e0cc;
+    --muted:    #5a5470;
+    --danger:   #e05555;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+  }
+
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+
+  /* HEADER */
+  header {
+    padding: 14px 20px 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .header-title { text-align: left; }
+  header h1 {
+    font-family: 'Crimson Pro', serif;
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--gold);
+  }
+  header p {
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-top: 1px;
+  }
+
+  #installBtn {
+    display: none;
+    padding: 6px 14px;
+    background: none;
+    border: 1px solid var(--gold-dim);
+    border-radius: 20px;
+    color: var(--gold);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s;
+  }
+  #installBtn:active { background: #1e1e3a; }
+
+  /* TABS */
+  .tabs {
+    display: flex;
+    margin: 0 20px;
+    border-bottom: 1px solid var(--muted);
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1;
+    padding: 10px 0;
+    background: none;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s;
+  }
+  .tab.active { color: var(--gold); }
+  .tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 10%;
+    width: 80%;
+    height: 2px;
+    background: var(--gold);
+    border-radius: 1px;
+  }
+
+  /* PANELS */
+  .panel {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .panel.active { display: flex; }
+
+  /* SING BODY */
+  .sing-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 20px 30px;
+    gap: 20px;
+  }
+
+  /* RING */
+  .ring-wrap {
+    position: relative;
+    width: 140px;
+    height: 140px;
+    flex-shrink: 0;
+  }
+  .ring-svg { width: 140px; height: 140px; transform: rotate(-90deg); }
+  .ring-track { fill: none; stroke: #2a2a4a; stroke-width: 6; }
+  .ring-fill {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dasharray: 339.3;
+    stroke-dashoffset: 339.3;
+    transition: stroke-dashoffset 0.25s linear;
+  }
+  .ring-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .ring-seconds {
+    font-size: 2.2rem;
+    font-weight: 500;
+    color: var(--gold);
+    line-height: 1;
+  }
+  .ring-label {
+    font-size: 0.62rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* DURATION BADGE */
+  .duration-badge {
+    font-family: 'Crimson Pro', serif;
+    font-size: 1rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-align: center;
+  }
+  .duration-badge span { color: var(--gold); font-size: 1.15rem; }
+
+  /* STATE */
+  .state-label {
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    min-height: 1.2em;
+    text-align: center;
+  }
+  .state-label.recording { color: var(--danger); }
+  .state-label.playing   { color: var(--gold); }
+  .state-label.waiting   { color: #7a6fa0; }
+
+  /* PROGRESS BAR */
+  .pb-wrap {
+    width: 100%;
+    height: 3px;
+    background: #2a2a4a;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .pb-bar {
+    height: 100%;
+    background: var(--gold);
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  /* START BUTTON */
+  .start-btn {
+    padding: 14px 48px;
+    background: none;
+    border: 1.5px solid var(--gold-dim);
+    border-radius: 40px;
+    color: var(--gold);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .start-btn:active { background: #1e1e3a; }
+  .start-btn:disabled { color: var(--muted); border-color: #2a2a4a; cursor: default; }
+
+  /* HINT */
+  .hint {
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 0 20px;
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <header>
+    <div class="header-title">
+      <h1>Gurbani Echo</h1>
+      <p>Sing · Hear yourself · Learn</p>
+    </div>
+    <button id="installBtn" onclick="installApp()">⊕ Install</button>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab(0)">28s</button>
+    <button class="tab"        onclick="switchTab(1)">58s</button>
+    <button class="tab"        onclick="switchTab(2)">88s</button>
+    <button class="tab"        onclick="switchTab(3)">118s</button>
+  </div>
+
+  <!-- PANEL 0 — 28s -->
+  <div class="panel active" id="panel-0">
+    <div class="sing-body">
+      <div class="ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 140 140">
+          <circle class="ring-track" cx="70" cy="70" r="54"/>
+          <circle class="ring-fill"  cx="70" cy="70" r="54"/>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-seconds">28</span>
+          <span class="ring-label">seconds</span>
+        </div>
+      </div>
+      <p class="duration-badge">Record <span>28s</span> · Playback at <span>30s</span></p>
+      <p class="state-label" id="state-0">Ready</p>
+      <div class="pb-wrap"><div class="pb-bar" id="pb-0"></div></div>
+      <button class="start-btn" id="btn-0" onclick="startEcho(0)">Start</button>
+      <p class="hint">Hum one line, then listen to yourself</p>
+    </div>
+  </div>
+
+  <!-- PANEL 1 — 58s -->
+  <div class="panel" id="panel-1">
+    <div class="sing-body">
+      <div class="ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 140 140">
+          <circle class="ring-track" cx="70" cy="70" r="54"/>
+          <circle class="ring-fill"  cx="70" cy="70" r="54"/>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-seconds">58</span>
+          <span class="ring-label">seconds</span>
+        </div>
+      </div>
+      <p class="duration-badge">Record <span>58s</span> · Playback at <span>60s</span></p>
+      <p class="state-label" id="state-1">Ready</p>
+      <div class="pb-wrap"><div class="pb-bar" id="pb-1"></div></div>
+      <button class="start-btn" id="btn-1" onclick="startEcho(1)">Start</button>
+      <p class="hint">Hum one line, then listen to yourself</p>
+    </div>
+  </div>
+
+  <!-- PANEL 2 — 88s -->
+  <div class="panel" id="panel-2">
+    <div class="sing-body">
+      <div class="ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 140 140">
+          <circle class="ring-track" cx="70" cy="70" r="54"/>
+          <circle class="ring-fill"  cx="70" cy="70" r="54"/>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-seconds">88</span>
+          <span class="ring-label">seconds</span>
+        </div>
+      </div>
+      <p class="duration-badge">Record <span>88s</span> · Playback at <span>90s</span></p>
+      <p class="state-label" id="state-2">Ready</p>
+      <div class="pb-wrap"><div class="pb-bar" id="pb-2"></div></div>
+      <button class="start-btn" id="btn-2" onclick="startEcho(2)">Start</button>
+      <p class="hint">Hum one line, then listen to yourself</p>
+    </div>
+  </div>
+
+  <!-- PANEL 3 — 118s -->
+  <div class="panel" id="panel-3">
+    <div class="sing-body">
+      <div class="ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 140 140">
+          <circle class="ring-track" cx="70" cy="70" r="54"/>
+          <circle class="ring-fill"  cx="70" cy="70" r="54"/>
+        </svg>
+        <div class="ring-center">
+          <span class="ring-seconds">118</span>
+          <span class="ring-label">seconds</span>
+        </div>
+      </div>
+      <p class="duration-badge">Record <span>118s</span> · Playback at <span>120s</span></p>
+      <p class="state-label" id="state-3">Ready</p>
+      <div class="pb-wrap"><div class="pb-bar" id="pb-3"></div></div>
+      <button class="start-btn" id="btn-3" onclick="startEcho(3)">Start</button>
+      <p class="hint">Hum one line, then listen to yourself</p>
+    </div>
+  </div>
+
+</div>
+
+<audio id="playbackAudio"></audio>
+
+<script>
+/* ── CONFIG ── */
+const TABS = [
+  { recSecs: 28,  playAtMs: 30000  },
+  { recSecs: 58,  playAtMs: 60000  },
+  { recSecs: 88,  playAtMs: 90000  },
+  { recSecs: 118, playAtMs: 120000 },
+];
+const CIRCUMFERENCE = 2 * Math.PI * 54; // r=54
+
+/* ── INSTALL ── */
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBtn').style.display = 'block';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBtn').style.display = 'none';
+  deferredPrompt = null;
+});
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
+}
+
+/* ── TABS ── */
+let activeTab = 0;
+function switchTab(idx) {
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === idx));
+  document.querySelectorAll('.panel').forEach((p, i) => p.classList.toggle('active', i === idx));
+  activeTab = idx;
+}
+
+/* ── PER-PANEL HELPERS ── */
+function getEls(idx) {
+  const panel = document.getElementById('panel-' + idx);
+  return {
+    ringFill:    panel.querySelector('.ring-fill'),
+    ringSeconds: panel.querySelector('.ring-seconds'),
+    ringLabel:   panel.querySelector('.ring-label'),
+    stateLabel:  panel.querySelector('.state-label'),
+    pbBar:       panel.querySelector('.pb-bar'),
+    btn:         panel.querySelector('.start-btn'),
+  };
+}
+
+function setRing(ringFill, fraction) {
+  ringFill.style.strokeDashoffset = CIRCUMFERENCE * (1 - fraction);
+}
+
+function resetPanel(idx) {
+  const { ringFill, ringSeconds, ringLabel, stateLabel, pbBar, btn } = getEls(idx);
+  setRing(ringFill, 0);
+  ringSeconds.textContent = TABS[idx].recSecs;
+  ringLabel.textContent   = 'seconds';
+  stateLabel.className    = 'state-label';
+  stateLabel.textContent  = 'Ready';
+  pbBar.style.width       = '0%';
+  btn.disabled            = false;
+}
+
+/* ── ECHO ENGINE ── */
+const playbackAudio = document.getElementById('playbackAudio');
+let blobURLs = [null, null, null, null];
+
+function startEcho(idx) {
+  const cfg = TABS[idx];
+  const { ringFill, ringSeconds, ringLabel, stateLabel, pbBar, btn } = getEls(idx);
+
+  navigator.mediaDevices.getUserMedia({ audio: {
+    echoCancellation: false,
+    noiseSuppression: false,
+    autoGainControl: false
+  }}).then(stream => {
+
+    if (blobURLs[idx]) { URL.revokeObjectURL(blobURLs[idx]); blobURLs[idx] = null; }
+    let chunks = [];
+
+    let mimeType = 'audio/webm';
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+      mimeType = 'audio/webm;codecs=opus';
+    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+      mimeType = 'audio/mp4';
+    }
+
+    const mediaRecorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 128000 });
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      const blob = new Blob(chunks, { type: mimeType });
+      blobURLs[idx] = URL.createObjectURL(blob);
+      // Schedule playback at the configured time from Start press
+      // recSecs already elapsed; remaining gap = playAtMs - recSecs*1000
+      const remainingMs = cfg.playAtMs - cfg.recSecs * 1000;
+      stateLabel.className   = 'state-label waiting';
+      stateLabel.textContent = 'Get ready to listen…';
+      setTimeout(() => playback(idx), remainingMs);
+    };
+
+    // Start recording
+    mediaRecorder.start();
+    btn.disabled = true;
+    stateLabel.className   = 'state-label recording';
+    stateLabel.textContent = 'Recording…';
+    pbBar.style.width = '0%';
+    setRing(ringFill, 0);
+    ringSeconds.textContent = cfg.recSecs;
+
+    // Countdown
+    let elapsed = 0;
+    const timer = setInterval(() => {
+      elapsed++;
+      const remaining = cfg.recSecs - elapsed;
+      setRing(ringFill, elapsed / cfg.recSecs);
+      ringSeconds.textContent = remaining > 0 ? remaining : 0;
+      if (elapsed >= cfg.recSecs) {
+        clearInterval(timer);
+        mediaRecorder.stop();
+        stateLabel.className   = 'state-label';
+        stateLabel.textContent = 'Processing…';
+        ringLabel.textContent  = 'done';
+      }
+    }, 1000);
+
+  }).catch(() => {
+    const { stateLabel } = getEls(idx);
+    stateLabel.className   = 'state-label';
+    stateLabel.textContent = 'Microphone access denied';
+  });
+}
+
+function playback(idx) {
+  const { stateLabel, pbBar } = getEls(idx);
+  const url = blobURLs[idx];
+  if (!url) return;
+
+  stateLabel.className   = 'state-label playing';
+  stateLabel.textContent = 'Playing back…';
+
+  playbackAudio.src = url;
+  playbackAudio.play();
+
+  playbackAudio.ontimeupdate = () => {
+    if (playbackAudio.duration)
+      pbBar.style.width = (playbackAudio.currentTime / playbackAudio.duration * 100) + '%';
+  };
+  playbackAudio.onended = () => {
+    pbBar.style.width = '0%';
+    resetPanel(idx);
+  };
+}
+
+/* ── INIT ── */
+[0, 1, 2, 3].forEach(resetPanel);
+</script>
+
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');</script>
+</body>
+</html>
