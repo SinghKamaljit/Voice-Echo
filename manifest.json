@@ -1,21 +1,36 @@
 {
-"name": "Voice Echo",
-"short_name": "VoiceEcho",
-"description": "Sing a line of Gurbani and hear yourself echoed back.",
-"start_url": "./index.html",
-"display": "standalone",
-"background_color": "#0d0d1a",
-"theme_color": "#0d0d1a",
-"orientation": "portrait",
-"icons": [
-{
-"src": "icon-192.png",
-"sizes": "192x192",
-"type": "image/png",
-"purpose": "any maskable"
-},
-{
-"src": "icon-512.png",
-"sizes": "512x512",
-"type": "image/png",
-"purpose": "any maskable"
+  "name": "Voice Echo",
+  "short_name": "VoiceEcho",
+  "description": "Record your voice and hear yourself echoed back.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0d0d1a",
+  "theme_color": "#0d0d1a",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
