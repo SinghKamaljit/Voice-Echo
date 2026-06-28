@@ -54,7 +54,7 @@
   .tabs { display: flex; margin: 0 20px; border-bottom: 1px solid var(--muted); flex-shrink: 0; }
   .tab { flex: 1; padding: 10px 0; background: none; border: none;
     font-family: 'Inter', sans-serif; font-size: 0.78rem; letter-spacing: 0.05em;
-    text-transform: uppercase; color: var(--muted); cursor: pointer; position: relative;
+    text-transform: uppercase; color: #9990b8; cursor: pointer; position: relative;
     transition: color 0.2s; }
   .tab.active { color: var(--gold); }
   .tab.active::after { content: ''; position: absolute; bottom: -1px; left: 10%;
@@ -177,14 +177,24 @@
   .picker-close { background: none; border: none; color: var(--muted);
     font-size: 1rem; cursor: pointer; padding: 0 4px; line-height: 1; }
   .picker-list { max-height: 220px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .picker-item { padding: 10px 14px; border-bottom: 1px solid #1a1a2e; cursor: pointer;
-    transition: background 0.15s; }
+  .picker-item { display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-bottom: 1px solid #1a1a2e; transition: background 0.15s; }
   .picker-item:last-child { border-bottom: none; }
-  .picker-item:active { background: #1e1e3a; }
+  .picker-item-body { flex: 1; cursor: pointer; min-width: 0; }
+  .picker-item-body:active { opacity: 0.7; }
   .picker-item-date { font-size: 0.62rem; color: var(--muted);
     letter-spacing: 0.08em; margin-bottom: 3px; }
   .picker-item-preview { font-family: 'Crimson Pro', serif; font-size: 0.9rem;
     color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .picker-del-btn { flex-shrink: 0; background: none; border: 1px solid #6a2a2a;
+    border-radius: 50%; width: 24px; height: 24px; color: var(--danger);
+    font-size: 0.7rem; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; transition: background 0.2s; }
+  .picker-del-btn:active { background: #2a0a0a; }
+  .picker-clear-btn { padding: 4px 10px; background: none; border: 1px solid #6a2a2a;
+    border-radius: 12px; color: var(--danger); font-family: 'Inter', sans-serif;
+    font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; }
+  .picker-clear-btn:active { background: #2a0a0a; }
   .picker-empty { padding: 20px 14px; text-align: center; color: var(--muted);
     font-size: 0.75rem; }
 
@@ -277,7 +287,10 @@
   <div class="lyrics-picker" id="lyricsPicker">
     <div class="picker-header">
       <span class="picker-title">Lyrics History (last 10)</span>
-      <button class="picker-close" onclick="closeLyricsPicker()">✕</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button class="picker-clear-btn" id="pickerClearBtn" onclick="clearAllLyricsHistory()" style="display:none;">Clear All</button>
+        <button class="picker-close" onclick="closeLyricsPicker()">✕</button>
+      </div>
     </div>
     <div class="picker-list" id="lyricsPickerList"></div>
   </div>
@@ -526,10 +539,13 @@ function closeLyricsPicker() {
 function renderLyricsPicker() {
   const history = getLyricsHistory();
   const list = document.getElementById('lyricsPickerList');
+  const clearBtn = document.getElementById('pickerClearBtn');
   if (!history.length) {
     list.innerHTML = '<p class="picker-empty">No saved lyrics yet.<br>They are saved when you start a recording.</p>';
+    clearBtn.style.display = 'none';
     return;
   }
+  clearBtn.style.display = 'block';
   list.innerHTML = '';
   history.forEach((entry, i) => {
     const div = document.createElement('div');
@@ -538,12 +554,34 @@ function renderLyricsPicker() {
     const dateStr = d.toLocaleDateString(undefined, {weekday:'short',month:'short',day:'numeric'})
                   + ' · ' + d.toLocaleTimeString(undefined, {hour:'2-digit',minute:'2-digit'});
     const preview = entry.text.split('\n')[0].slice(0, 60) + (entry.text.length > 60 ? '…' : '');
-    div.innerHTML = `<div class="picker-item-date">${dateStr}</div>
-                     <div class="picker-item-preview">${preview}</div>`;
-    div.onclick = () => loadLyricsFromHistory(i);
+    div.innerHTML = `
+      <div class="picker-item-body">
+        <div class="picker-item-date">${dateStr}</div>
+        <div class="picker-item-preview">${preview}</div>
+      </div>
+      <button class="picker-del-btn" title="Delete this entry">✕</button>`;
+    div.querySelector('.picker-item-body').onclick = () => loadLyricsFromHistory(i);
+    div.querySelector('.picker-del-btn').onclick = (e) => { e.stopPropagation(); deleteLyricsHistoryEntry(i); };
     list.appendChild(div);
   });
 }
+function deleteLyricsHistoryEntry(idx) {
+  try {
+    let history = getLyricsHistory();
+    history.splice(idx, 1);
+    localStorage.setItem(LYRICS_HISTORY_KEY, JSON.stringify(history));
+    renderLyricsPicker();
+  } catch(e) {}
+}
+
+function clearAllLyricsHistory() {
+  if (!confirm('Delete all saved lyrics history? This cannot be undone.')) return;
+  try {
+    localStorage.setItem(LYRICS_HISTORY_KEY, '[]');
+    renderLyricsPicker();
+  } catch(e) {}
+}
+
 function loadLyricsFromHistory(idx) {
   const history = getLyricsHistory();
   if (!history[idx]) return;
