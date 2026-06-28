@@ -1,5 +1,5 @@
 /* Voice Echo — Service Worker */
-const CACHE = 'voice-echo-v6';
+const CACHE = 'voice-echo-v7';
 const ASSETS = [
   './',
   './index.html',
