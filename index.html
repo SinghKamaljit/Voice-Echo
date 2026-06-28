@@ -410,6 +410,112 @@ function resetPanel(idx) {
   btn.disabled            = false;
 }
 
+/* ── WAKE LOCK ── */
+let wakeLock = null;
+
+async function acquireWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      console.log('[VoiceEcho] Wake lock acquired');
+    }
+  } catch (err) {
+    console.error('[VoiceEcho] Wake lock failed:', err);
+  }
+}
+
+async function releaseWakeLock() {
+  if (wakeLock) {
+    try {
+      await wakeLock.release();
+      console.log('[VoiceEcho] Wake lock released');
+    } catch (err) {
+      console.error('[VoiceEcho] Wake lock release failed:', err);
+    }
+    wakeLock = null;
+  }
+}
+
+/* ── INDEXEDDB ── */
+const DB_NAME    = 'voiceEchoDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'chunks';
+let db = null;
+let useIndexedDB = false;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if (!d.objectStoreNames.contains(STORE_NAME)) {
+        d.createObjectStore(STORE_NAME, { autoIncrement: true });
+      }
+    };
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
+}
+
+async function initDB() {
+  try {
+    db = await openDB();
+    useIndexedDB = true;
+    console.log('[VoiceEcho] IndexedDB ready');
+  } catch (err) {
+    console.warn('[VoiceEcho] IndexedDB unavailable, using in-memory fallback:', err);
+    useIndexedDB = false;
+  }
+}
+
+function saveChunkToIndexedDB(sessionId, blob) {
+  return new Promise((resolve, reject) => {
+    const tx    = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req   = store.put({ sessionId, blob, ts: Date.now() });
+    req.onsuccess = () => {
+      console.log('[VoiceEcho] Chunk saved to IndexedDB — session:', sessionId);
+      resolve();
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function readChunksFromIndexedDB(sessionId) {
+  return new Promise((resolve, reject) => {
+    const tx      = db.transaction(STORE_NAME, 'readonly');
+    const store   = tx.objectStore(STORE_NAME);
+    const req     = store.getAll();
+    req.onsuccess = e => {
+      const all = e.target.result || [];
+      const blobs = all
+        .filter(r => r.sessionId === sessionId)
+        .sort((a, b) => a.ts - b.ts)
+        .map(r => r.blob);
+      resolve(blobs);
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
+function clearSessionChunks(sessionId) {
+  return new Promise((resolve, reject) => {
+    const tx    = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req   = store.openCursor();
+    req.onsuccess = e => {
+      const cursor = e.target.result;
+      if (cursor) {
+        if (cursor.value.sessionId === sessionId) cursor.delete();
+        cursor.continue();
+      } else {
+        resolve();
+      }
+    };
+    req.onerror = e => reject(e.target.error);
+  });
+}
+
 /* ── ECHO ENGINE ── */
 const playbackAudio = document.getElementById('playbackAudio');
 let blobURLs = [null, null, null, null];
@@ -421,11 +527,16 @@ function startEcho(idx) {
   navigator.mediaDevices.getUserMedia({ audio: {
     echoCancellation: false,
     noiseSuppression: false,
-    autoGainControl: false
-  }}).then(stream => {
+    autoGainControl:  false
+  }}).then(async stream => {
 
     if (blobURLs[idx]) { URL.revokeObjectURL(blobURLs[idx]); blobURLs[idx] = null; }
-    let chunks = [];
+
+    // Unique session ID for this recording
+    const sessionId = idx + '_' + Date.now();
+
+    // In-memory fallback buffer
+    let memChunks = [];
 
     let mimeType = 'audio/webm';
     if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
@@ -435,21 +546,67 @@ function startEcho(idx) {
     }
 
     const mediaRecorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 128000 });
-    mediaRecorder.ondataavailable = e => chunks.push(e.data);
-    mediaRecorder.onstop = () => {
+
+    /* ── ondataavailable: stream chunks to IndexedDB (or memory fallback) ── */
+    mediaRecorder.ondataavailable = async (e) => {
+      if (!e.data || e.data.size === 0) return;
+      if (useIndexedDB) {
+        try {
+          await saveChunkToIndexedDB(sessionId, e.data);
+        } catch (err) {
+          console.warn('[VoiceEcho] IndexedDB write failed, buffering in memory:', err);
+          memChunks.push(e.data);
+        }
+      } else {
+        memChunks.push(e.data);
+        console.log('[VoiceEcho] Chunk buffered in memory (fallback) — session:', sessionId);
+      }
+    };
+
+    /* ── onstop: reassemble blob, then schedule playback ── */
+    mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunks, { type: mimeType });
+      console.log('[VoiceEcho] Recording stopped — session:', sessionId);
+
+      stateLabel.className   = 'state-label waiting';
+      stateLabel.textContent = 'Assembling…';
+
+      let allBlobs;
+      if (useIndexedDB) {
+        try {
+          allBlobs = await readChunksFromIndexedDB(sessionId);
+          // Merge any fallback memory chunks that failed IDB writes
+          if (memChunks.length > 0) allBlobs = allBlobs.concat(memChunks);
+        } catch (err) {
+          console.warn('[VoiceEcho] IndexedDB read failed, using memory chunks:', err);
+          allBlobs = memChunks;
+        }
+      } else {
+        allBlobs = memChunks;
+      }
+
+      const blob = new Blob(allBlobs, { type: mimeType });
       blobURLs[idx] = URL.createObjectURL(blob);
-      // Schedule playback at the configured time from Start press
-      // recSecs already elapsed; remaining gap = playAtMs - recSecs*1000
+      console.log('[VoiceEcho] Blob assembled — size:', blob.size, 'bytes — session:', sessionId);
+
+      // Clean up IDB chunks for this session
+      if (useIndexedDB) {
+        clearSessionChunks(sessionId).catch(err =>
+          console.warn('[VoiceEcho] IDB cleanup failed:', err)
+        );
+      }
+
       const remainingMs = cfg.playAtMs - cfg.recSecs * 1000;
       stateLabel.className   = 'state-label waiting';
       stateLabel.textContent = 'Get ready to listen…';
       setTimeout(() => playback(idx), remainingMs);
     };
 
-    // Start recording
-    mediaRecorder.start();
+    /* ── Start recording — emit a chunk every 1 second ── */
+    await acquireWakeLock();
+    mediaRecorder.start(1000);
+    console.log('[VoiceEcho] Recording started — session:', sessionId, '| storage:', useIndexedDB ? 'IndexedDB' : 'memory');
+
     btn.disabled = true;
     stateLabel.className   = 'state-label recording';
     stateLabel.textContent = 'Recording…';
@@ -457,7 +614,7 @@ function startEcho(idx) {
     setRing(ringFill, 0);
     ringSeconds.textContent = cfg.recSecs;
 
-    // Countdown
+    /* ── Countdown ── */
     let elapsed = 0;
     const timer = setInterval(() => {
       elapsed++;
@@ -485,6 +642,7 @@ function playback(idx) {
   const url = blobURLs[idx];
   if (!url) return;
 
+  console.log('[VoiceEcho] Playback started — panel:', idx);
   stateLabel.className   = 'state-label playing';
   stateLabel.textContent = 'Playing back…';
 
@@ -496,12 +654,15 @@ function playback(idx) {
       pbBar.style.width = (playbackAudio.currentTime / playbackAudio.duration * 100) + '%';
   };
   playbackAudio.onended = () => {
+    console.log('[VoiceEcho] Playback finished — panel:', idx);
     pbBar.style.width = '0%';
+    releaseWakeLock();
     resetPanel(idx);
   };
 }
 
 /* ── INIT ── */
+initDB();
 [0, 1, 2, 3].forEach(resetPanel);
 </script>
 
