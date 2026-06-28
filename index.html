@@ -115,6 +115,96 @@
     border-radius: 1px;
   }
 
+  /* LYRICS PANEL */
+  .lyrics-wrap {
+    flex-shrink: 0;
+    margin: 8px 20px 0;
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+  .lyrics-wrap.open  { max-height: 180px; }
+  .lyrics-wrap.closed { max-height: 0; border-color: transparent; }
+
+  .lyrics-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 14px;
+    background: var(--surface);
+    border: none;
+    border-bottom: 1px solid #2a2a4a;
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .lyrics-toggle:active { background: #1a1a30; }
+  .lyrics-toggle .arrow { font-size: 0.6rem; transition: transform 0.25s; }
+  .lyrics-wrap.open  .arrow { transform: rotate(180deg); }
+  .lyrics-wrap.closed .arrow { transform: rotate(0deg); }
+
+  /* Wrapper for toggle button always visible above the panel */
+  .lyrics-toggle-row {
+    flex-shrink: 0;
+    margin: 8px 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .lyrics-toggle-btn {
+    padding: 5px 14px;
+    background: none;
+    border: 1px solid #2a2a4a;
+    border-radius: 16px;
+    color: var(--muted);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .lyrics-toggle-btn:active { color: var(--gold); border-color: var(--gold-dim); }
+
+  .lyrics-box {
+    width: calc(100% - 40px);
+    margin: 0 20px;
+    height: 130px;
+    background: var(--surface);
+    border: 1px solid #2a2a4a;
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'Crimson Pro', serif;
+    font-size: 1rem;
+    line-height: 1.55;
+    padding: 10px 12px;
+    resize: none;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    outline: none;
+    transition: max-height 0.3s ease, opacity 0.3s ease,
+                margin 0.3s ease, padding 0.3s ease, border 0.3s ease;
+  }
+  .lyrics-box.hidden {
+    max-height: 0;
+    height: 0;
+    opacity: 0;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-width: 0;
+    pointer-events: none;
+  }
+  .lyrics-box:focus { border-color: var(--gold-dim); }
+  .lyrics-box::placeholder { color: var(--muted); font-style: italic; }
+
   /* PANELS */
   .panel {
     display: none;
@@ -131,8 +221,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 10px 20px 30px;
-    gap: 20px;
+    padding: 10px 20px 24px;
+    gap: 16px;
   }
 
   /* RING */
@@ -151,8 +241,13 @@
     stroke-linecap: round;
     stroke-dasharray: 339.3;
     stroke-dashoffset: 339.3;
-    transition: stroke-dashoffset 0.25s linear;
+    transition: stroke-dashoffset 0.9s linear;
   }
+  /* During recording: fill clockwise (count up) */
+  .ring-fill.mode-record { stroke: var(--gold); }
+  /* During playback: drain counter-clockwise (count down) */
+  .ring-fill.mode-play   { stroke: #7a6fa0; }
+
   .ring-center {
     position: absolute;
     inset: 0;
@@ -195,7 +290,7 @@
     text-align: center;
   }
   .state-label.recording { color: var(--danger); }
-  .state-label.playing   { color: var(--gold); }
+  .state-label.playing   { color: #7a6fa0; }
   .state-label.waiting   { color: #7a6fa0; }
 
   /* PROGRESS BAR */
@@ -259,13 +354,25 @@
     <button class="tab"        onclick="switchTab(3)">118s</button>
   </div>
 
+  <!-- LYRICS AREA (shared across all tabs) -->
+  <div style="display:flex; align-items:center; justify-content:space-between; margin: 10px 20px 0; flex-shrink:0;">
+    <span style="font-size:0.65rem; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase;">Lyrics / Notes</span>
+    <button class="lyrics-toggle-btn" id="lyricsToggleBtn" onclick="toggleLyrics()">Hide Lyrics</button>
+  </div>
+  <textarea
+    id="lyricsBox"
+    class="lyrics-box"
+    placeholder="Paste shabad, paath, song lyrics or notes here…"
+    oninput="saveLyrics()"
+  ></textarea>
+
   <!-- PANEL 0 — 28s -->
   <div class="panel active" id="panel-0">
     <div class="sing-body">
       <div class="ring-wrap">
         <svg class="ring-svg" viewBox="0 0 140 140">
           <circle class="ring-track" cx="70" cy="70" r="54"/>
-          <circle class="ring-fill"  cx="70" cy="70" r="54"/>
+          <circle class="ring-fill mode-record" cx="70" cy="70" r="54"/>
         </svg>
         <div class="ring-center">
           <span class="ring-seconds">28</span>
@@ -286,7 +393,7 @@
       <div class="ring-wrap">
         <svg class="ring-svg" viewBox="0 0 140 140">
           <circle class="ring-track" cx="70" cy="70" r="54"/>
-          <circle class="ring-fill"  cx="70" cy="70" r="54"/>
+          <circle class="ring-fill mode-record" cx="70" cy="70" r="54"/>
         </svg>
         <div class="ring-center">
           <span class="ring-seconds">58</span>
@@ -307,7 +414,7 @@
       <div class="ring-wrap">
         <svg class="ring-svg" viewBox="0 0 140 140">
           <circle class="ring-track" cx="70" cy="70" r="54"/>
-          <circle class="ring-fill"  cx="70" cy="70" r="54"/>
+          <circle class="ring-fill mode-record" cx="70" cy="70" r="54"/>
         </svg>
         <div class="ring-center">
           <span class="ring-seconds">88</span>
@@ -328,7 +435,7 @@
       <div class="ring-wrap">
         <svg class="ring-svg" viewBox="0 0 140 140">
           <circle class="ring-track" cx="70" cy="70" r="54"/>
-          <circle class="ring-fill"  cx="70" cy="70" r="54"/>
+          <circle class="ring-fill mode-record" cx="70" cy="70" r="54"/>
         </svg>
         <div class="ring-center">
           <span class="ring-seconds">118</span>
@@ -374,6 +481,37 @@ function installApp() {
   deferredPrompt.userChoice.then(() => { deferredPrompt = null; });
 }
 
+/* ── LYRICS ── */
+const lyricsBox = document.getElementById('lyricsBox');
+const lyricsToggleBtn = document.getElementById('lyricsToggleBtn');
+let lyricsVisible = true;
+
+function saveLyrics() {
+  try { localStorage.setItem('voiceEcho_lyrics', lyricsBox.value); } catch(e) {}
+}
+function loadLyrics() {
+  try {
+    const saved = localStorage.getItem('voiceEcho_lyrics');
+    if (saved !== null) lyricsBox.value = saved;
+  } catch(e) {}
+}
+function toggleLyrics() {
+  lyricsVisible = !lyricsVisible;
+  lyricsBox.classList.toggle('hidden', !lyricsVisible);
+  lyricsToggleBtn.textContent = lyricsVisible ? 'Hide Lyrics' : 'Show Lyrics';
+  try { localStorage.setItem('voiceEcho_lyricsVisible', lyricsVisible ? '1' : '0'); } catch(e) {}
+}
+function initLyrics() {
+  loadLyrics();
+  try {
+    const vis = localStorage.getItem('voiceEcho_lyricsVisible');
+    if (vis === '0') {
+      lyricsVisible = true; // toggle will flip it
+      toggleLyrics();
+    }
+  } catch(e) {}
+}
+
 /* ── TABS ── */
 let activeTab = 0;
 function switchTab(idx) {
@@ -401,8 +539,11 @@ function setRing(ringFill, fraction) {
 
 function resetPanel(idx) {
   const { ringFill, ringSeconds, ringLabel, stateLabel, pbBar, btn } = getEls(idx);
+  ringFill.classList.remove('mode-play');
+  ringFill.classList.add('mode-record');
   setRing(ringFill, 0);
   ringSeconds.textContent = TABS[idx].recSecs;
+  ringSeconds.style.color = 'var(--gold)';
   ringLabel.textContent   = 'seconds';
   stateLabel.className    = 'state-label';
   stateLabel.textContent  = 'Ready';
@@ -426,15 +567,19 @@ async function acquireWakeLock() {
 
 async function releaseWakeLock() {
   if (wakeLock) {
-    try {
-      await wakeLock.release();
-      console.log('[VoiceEcho] Wake lock released');
-    } catch (err) {
-      console.error('[VoiceEcho] Wake lock release failed:', err);
-    }
+    try { await wakeLock.release(); console.log('[VoiceEcho] Wake lock released'); }
+    catch (err) { console.error('[VoiceEcho] Wake lock release failed:', err); }
     wakeLock = null;
   }
 }
+
+/* Re-acquire wake lock if tab becomes visible again during an active session */
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && activeSessionIdx !== null) {
+    console.log('[VoiceEcho] Tab visible again — re-acquiring wake lock');
+    await acquireWakeLock();
+  }
+});
 
 /* ── INDEXEDDB ── */
 const DB_NAME    = 'voiceEchoDB';
@@ -474,7 +619,7 @@ function saveChunkToIndexedDB(sessionId, blob) {
     const store = tx.objectStore(STORE_NAME);
     const req   = store.put({ sessionId, blob, ts: Date.now() });
     req.onsuccess = () => {
-      console.log('[VoiceEcho] Chunk saved to IndexedDB — session:', sessionId);
+      console.log('[VoiceEcho] Chunk saved — session:', sessionId);
       resolve();
     };
     req.onerror = e => reject(e.target.error);
@@ -483,9 +628,9 @@ function saveChunkToIndexedDB(sessionId, blob) {
 
 function readChunksFromIndexedDB(sessionId) {
   return new Promise((resolve, reject) => {
-    const tx      = db.transaction(STORE_NAME, 'readonly');
-    const store   = tx.objectStore(STORE_NAME);
-    const req     = store.getAll();
+    const tx    = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req   = store.getAll();
     req.onsuccess = e => {
       const all = e.target.result || [];
       const blobs = all
@@ -508,9 +653,7 @@ function clearSessionChunks(sessionId) {
       if (cursor) {
         if (cursor.value.sessionId === sessionId) cursor.delete();
         cursor.continue();
-      } else {
-        resolve();
-      }
+      } else { resolve(); }
     };
     req.onerror = e => reject(e.target.error);
   });
@@ -519,6 +662,7 @@ function clearSessionChunks(sessionId) {
 /* ── ECHO ENGINE ── */
 const playbackAudio = document.getElementById('playbackAudio');
 let blobURLs = [null, null, null, null];
+let activeSessionIdx = null; // track which panel is active for visibilitychange
 
 function startEcho(idx) {
   const cfg = TABS[idx];
@@ -532,38 +676,34 @@ function startEcho(idx) {
 
     if (blobURLs[idx]) { URL.revokeObjectURL(blobURLs[idx]); blobURLs[idx] = null; }
 
-    // Unique session ID for this recording
-    const sessionId = idx + '_' + Date.now();
-
-    // In-memory fallback buffer
-    let memChunks = [];
+    activeSessionIdx = idx;
+    const sessionId  = idx + '_' + Date.now();
+    let memChunks    = [];
 
     let mimeType = 'audio/webm';
-    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+    if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus'))
       mimeType = 'audio/webm;codecs=opus';
-    } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+    else if (MediaRecorder.isTypeSupported('audio/mp4'))
       mimeType = 'audio/mp4';
-    }
 
     const mediaRecorder = new MediaRecorder(stream, { mimeType, audioBitsPerSecond: 128000 });
 
-    /* ── ondataavailable: stream chunks to IndexedDB (or memory fallback) ── */
+    /* Stream chunks to IndexedDB every second */
     mediaRecorder.ondataavailable = async (e) => {
       if (!e.data || e.data.size === 0) return;
       if (useIndexedDB) {
-        try {
-          await saveChunkToIndexedDB(sessionId, e.data);
-        } catch (err) {
-          console.warn('[VoiceEcho] IndexedDB write failed, buffering in memory:', err);
+        try { await saveChunkToIndexedDB(sessionId, e.data); }
+        catch (err) {
+          console.warn('[VoiceEcho] IDB write failed, buffering in memory:', err);
           memChunks.push(e.data);
         }
       } else {
         memChunks.push(e.data);
-        console.log('[VoiceEcho] Chunk buffered in memory (fallback) — session:', sessionId);
+        console.log('[VoiceEcho] Chunk buffered in memory — session:', sessionId);
       }
     };
 
-    /* ── onstop: reassemble blob, then schedule playback ── */
+    /* On stop: assemble blob then schedule playback */
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach(t => t.stop());
       console.log('[VoiceEcho] Recording stopped — session:', sessionId);
@@ -575,10 +715,9 @@ function startEcho(idx) {
       if (useIndexedDB) {
         try {
           allBlobs = await readChunksFromIndexedDB(sessionId);
-          // Merge any fallback memory chunks that failed IDB writes
           if (memChunks.length > 0) allBlobs = allBlobs.concat(memChunks);
         } catch (err) {
-          console.warn('[VoiceEcho] IndexedDB read failed, using memory chunks:', err);
+          console.warn('[VoiceEcho] IDB read failed, using memory chunks:', err);
           allBlobs = memChunks;
         }
       } else {
@@ -587,42 +726,44 @@ function startEcho(idx) {
 
       const blob = new Blob(allBlobs, { type: mimeType });
       blobURLs[idx] = URL.createObjectURL(blob);
-      console.log('[VoiceEcho] Blob assembled — size:', blob.size, 'bytes — session:', sessionId);
+      console.log('[VoiceEcho] Blob assembled —', blob.size, 'bytes — session:', sessionId);
 
-      // Clean up IDB chunks for this session
       if (useIndexedDB) {
         clearSessionChunks(sessionId).catch(err =>
-          console.warn('[VoiceEcho] IDB cleanup failed:', err)
-        );
+          console.warn('[VoiceEcho] IDB cleanup failed:', err));
       }
 
       const remainingMs = cfg.playAtMs - cfg.recSecs * 1000;
       stateLabel.className   = 'state-label waiting';
       stateLabel.textContent = 'Get ready to listen…';
-      setTimeout(() => playback(idx), remainingMs);
+      setTimeout(() => playback(idx, cfg.recSecs), remainingMs);
     };
 
-    /* ── Start recording — emit a chunk every 1 second ── */
+    /* Start recording — 1-second chunks */
     await acquireWakeLock();
     mediaRecorder.start(1000);
-    console.log('[VoiceEcho] Recording started — session:', sessionId, '| storage:', useIndexedDB ? 'IndexedDB' : 'memory');
+    console.log('[VoiceEcho] Recording started — session:', sessionId,
+                '| storage:', useIndexedDB ? 'IndexedDB' : 'memory');
 
     btn.disabled = true;
-    stateLabel.className   = 'state-label recording';
-    stateLabel.textContent = 'Recording…';
-    pbBar.style.width = '0%';
+    ringFill.classList.remove('mode-play');
+    ringFill.classList.add('mode-record');
+    ringSeconds.style.color = 'var(--gold)';
+    stateLabel.className    = 'state-label recording';
+    stateLabel.textContent  = 'Recording…';
+    pbBar.style.width       = '0%';
     setRing(ringFill, 0);
     ringSeconds.textContent = cfg.recSecs;
 
-    /* ── Countdown ── */
+    /* Recording countdown */
     let elapsed = 0;
-    const timer = setInterval(() => {
+    const recTimer = setInterval(() => {
       elapsed++;
       const remaining = cfg.recSecs - elapsed;
       setRing(ringFill, elapsed / cfg.recSecs);
       ringSeconds.textContent = remaining > 0 ? remaining : 0;
       if (elapsed >= cfg.recSecs) {
-        clearInterval(timer);
+        clearInterval(recTimer);
         mediaRecorder.stop();
         stateLabel.className   = 'state-label';
         stateLabel.textContent = 'Processing…';
@@ -637,25 +778,49 @@ function startEcho(idx) {
   });
 }
 
-function playback(idx) {
-  const { stateLabel, pbBar } = getEls(idx);
+/* ── PLAYBACK with ring countdown ── */
+function playback(idx, totalSecs) {
+  const { ringFill, ringSeconds, ringLabel, stateLabel, pbBar } = getEls(idx);
   const url = blobURLs[idx];
   if (!url) return;
 
   console.log('[VoiceEcho] Playback started — panel:', idx);
+
+  /* Switch ring to playback mode (purple drain) */
+  ringFill.classList.remove('mode-record');
+  ringFill.classList.add('mode-play');
+  ringSeconds.style.color = '#7a6fa0';
+  setRing(ringFill, 1); // start full, drain down
+  ringSeconds.textContent = totalSecs;
+  ringLabel.textContent   = 'seconds left';
+
   stateLabel.className   = 'state-label playing';
   stateLabel.textContent = 'Playing back…';
 
   playbackAudio.src = url;
-  playbackAudio.play();
+  playbackAudio.play().catch(err => console.warn('[VoiceEcho] play() rejected:', err));
 
+  /* Drive ring from audio's actual currentTime — avoids drift */
+  let playbackTimer = setInterval(() => {
+    if (!playbackAudio.duration) return;
+    const elapsed   = playbackAudio.currentTime;
+    const remaining = Math.max(0, Math.round(totalSecs - elapsed));
+    const fraction  = elapsed / playbackAudio.duration; // 0→1
+    setRing(ringFill, 1 - fraction);                    // drain from full to empty
+    ringSeconds.textContent = remaining;
+  }, 500);
+
+  /* Progress bar */
   playbackAudio.ontimeupdate = () => {
     if (playbackAudio.duration)
       pbBar.style.width = (playbackAudio.currentTime / playbackAudio.duration * 100) + '%';
   };
+
   playbackAudio.onended = () => {
+    clearInterval(playbackTimer);
     console.log('[VoiceEcho] Playback finished — panel:', idx);
     pbBar.style.width = '0%';
+    activeSessionIdx  = null;
     releaseWakeLock();
     resetPanel(idx);
   };
@@ -663,6 +828,7 @@ function playback(idx) {
 
 /* ── INIT ── */
 initDB();
+initLyrics();
 [0, 1, 2, 3].forEach(resetPanel);
 </script>
 
